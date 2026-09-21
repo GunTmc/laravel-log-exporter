@@ -1,0 +1,27 @@
+[Unit]
+Description=Laporan harian log Laravel (alogreport)
+
+[Service]
+Type=oneshot
+# Jalankan sebagai user khusus yang hanya boleh membaca log dan menulis ke REPORT_DIR
+User=alogreport
+Group=alogreport
+Environment=REPORT_DATE=yesterday
+ExecStart=/opt/alogreport/deploy/alogreport-daily.sh
+
+# Pembatasan: layanan ini hanya membaca log dan menulis laporan
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX
+LockPersonality=yes
+# Sesuaikan dengan LOG_DIR dan REPORT_DIR di /etc/default/alogreport
+ReadOnlyPaths=/var/www
+ReadWritePaths=/var/reports

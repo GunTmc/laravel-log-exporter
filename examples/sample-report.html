@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="data:,">
+<title>Laravel Log Report</title>
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#f3f4f1; --panel:#ffffff; --panel2:#eef0ec; --text:#182029; --muted:#667180; --border:#d9ddd6;
+  --accent:#1f5eff; --accent-soft:#e3ebff; --err:#c9283b; --err-soft:#fde7e9; --warn:#a56a00; --warn-soft:#fff1d6;
+  --crit:#8a1c7c; --crit-soft:#f9e4f5;
+  --mw:#7443d8; --ctl:#1f5eff; --svc:#0a8a5f; --repo:#b56a00; --job:#0b8a8a; --cmd:#c02670; --oth:#4f6b8a; --vend:#6b7280;
+  --shadow:0 8px 30px rgba(20,30,40,.18);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#12161b; --panel:#1a2027; --panel2:#222a33; --text:#e6eaef; --muted:#93a0af; --border:#2c3641;
+    --accent:#6f9bff; --accent-soft:#1f2c4d; --err:#ff6b7a; --err-soft:#3a1c22; --warn:#f0b34a; --warn-soft:#3a2d12;
+    --crit:#e58bd8; --crit-soft:#361a33;
+    --mw:#a98bff; --ctl:#6f9bff; --svc:#4fd1a1; --repo:#f0a94a; --job:#4fd1d1; --cmd:#f27ab0; --oth:#8fb0d6; --vend:#9aa3af;
+    --shadow:0 8px 30px rgba(0,0,0,.5);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#12161b; --panel:#1a2027; --panel2:#222a33; --text:#e6eaef; --muted:#93a0af; --border:#2c3641;
+  --accent:#6f9bff; --accent-soft:#1f2c4d; --err:#ff6b7a; --err-soft:#3a1c22; --warn:#f0b34a; --warn-soft:#3a2d12;
+  --crit:#e58bd8; --crit-soft:#361a33;
+  --mw:#a98bff; --ctl:#6f9bff; --svc:#4fd1a1; --repo:#f0a94a; --job:#4fd1d1; --cmd:#f27ab0; --oth:#8fb0d6; --vend:#9aa3af;
+  --shadow:0 8px 30px rgba(0,0,0,.5);
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.mono,code,pre{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1180px;margin:0 auto;padding:16px}
+
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between;margin-bottom:12px}
+.top h1{font-size:20px;margin:0;font-weight:700;letter-spacing:-.01em}
+.top .sub{color:var(--muted);font-size:13px}
+.btn{border:1px solid var(--border);background:var(--panel);border-radius:8px;padding:6px 12px}
+.btn:hover{background:var(--panel2)}
+.note{background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:13px}
+.note.warn{background:var(--warn-soft);border-color:color-mix(in srgb,var(--warn) 40%,transparent)}
+
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px}
+.stat{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px 14px}
+.stat b{font-size:24px;line-height:1.2;display:block}
+.stat span{color:var(--muted);font-size:12.5px}
+.stat.err b{color:var(--err)}
+
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+.panel h2{font-size:13.5px;margin:0;padding:10px 14px;border-bottom:1px solid var(--border);font-weight:600;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.panel h2 small{font-weight:400;color:var(--muted)}
+.pad{padding:12px 14px}
+
+.tl{display:flex;align-items:flex-end;justify-content:center;gap:3px;height:84px;padding:8px 14px 0}
+.tl .bar{flex:1;max-width:56px;min-width:4px;background:color-mix(in srgb,var(--accent) 45%,transparent);border:0;border-radius:3px 3px 0 0;min-height:3px;padding:0}
+.tl .bar:hover:not(:disabled){background:var(--accent)}
+.tl .bar.sel{background:var(--accent)}
+.tl .bar.dim{opacity:.35}
+.tl .bar.zero{background:var(--border);min-height:2px;cursor:default}
+.tl-axis{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;padding:4px 14px 8px}
+.tl.mini{height:44px;padding:4px 0 0}
+
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px 14px}
+.filters input[type=search]{flex:1 1 220px;min-width:180px}
+.filters input,.filters select{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 10px;min-height:34px}
+.filters label{color:var(--muted);font-size:12.5px;display:flex;align-items:center;gap:6px}
+.filters .chk{color:var(--text)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 12px}
+.chip{background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);border-radius:999px;padding:2px 4px 2px 10px;font-size:12.5px;display:inline-flex;align-items:center;gap:4px}
+.chip button{border:0;background:transparent;border-radius:999px;width:20px;height:20px;line-height:1}
+.chip button:hover{background:color-mix(in srgb,var(--accent) 25%,transparent)}
+
+.views{display:flex;gap:6px;padding:10px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.views button{border:1px solid var(--border);background:transparent;border-radius:999px;padding:4px 12px}
+.views button[aria-pressed="true"]{background:var(--text);color:var(--bg);border-color:var(--text)}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{font-weight:600;font-size:12.5px;color:var(--muted);text-align:left;padding:8px 14px;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:top}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--panel2)}
+tbody tr:last-child td{border-bottom:0}
+.cnt{font-weight:700;font-size:16px;white-space:nowrap}
+.cbar{height:4px;border-radius:2px;background:var(--err);margin-top:4px;opacity:.7}
+.ex-cls{font-weight:600}
+.ex-msg{color:var(--muted);font-size:13px;word-break:break-word;max-width:520px}
+.where{font-size:12.5px;white-space:nowrap}
+.empty{padding:32px 14px;text-align:center;color:var(--muted)}
+
+.badge{display:inline-block;border-radius:6px;padding:0 7px;font-size:12px;font-weight:600;line-height:20px;white-space:nowrap;margin-right:4px}
+.b-mw{color:var(--mw);background:color-mix(in srgb,var(--mw) 14%,transparent)}
+.b-ctl{color:var(--ctl);background:color-mix(in srgb,var(--ctl) 14%,transparent)}
+.b-svc{color:var(--svc);background:color-mix(in srgb,var(--svc) 14%,transparent)}
+.b-repo{color:var(--repo);background:color-mix(in srgb,var(--repo) 14%,transparent)}
+.b-job{color:var(--job);background:color-mix(in srgb,var(--job) 14%,transparent)}
+.b-cmd{color:var(--cmd);background:color-mix(in srgb,var(--cmd) 14%,transparent)}
+.b-oth{color:var(--oth);background:color-mix(in srgb,var(--oth) 14%,transparent)}
+.b-vend{color:var(--vend);background:color-mix(in srgb,var(--vend) 14%,transparent)}
+.b-ERROR{color:var(--err);background:var(--err-soft)}
+.b-WARNING{color:var(--warn);background:var(--warn-soft)}
+.b-CRITICAL,.b-ALERT,.b-EMERGENCY{color:var(--crit);background:var(--crit-soft)}
+.b-NOTICE,.b-INFO,.b-DEBUG{color:var(--muted);background:var(--panel2)}
+.b-HTTP{color:var(--ctl);background:color-mix(in srgb,var(--ctl) 14%,transparent)}
+.b-Queue{color:var(--job);background:color-mix(in srgb,var(--job) 14%,transparent)}
+.b-Console{color:var(--cmd);background:color-mix(in srgb,var(--cmd) 14%,transparent)}
+.b-Unknown{color:var(--vend);background:color-mix(in srgb,var(--vend) 14%,transparent)}
+.b-rel{color:var(--warn);background:var(--warn-soft)}
+
+.scrim{position:fixed;inset:0;background:rgba(10,15,20,.45);opacity:0;pointer-events:none;transition:opacity .18s;z-index:20}
+.scrim.open{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(780px,100%);background:var(--panel);border-left:1px solid var(--border);box-shadow:var(--shadow);transform:translateX(102%);transition:transform .2s ease;z-index:21;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.drawer.open{transform:none}
+.dhead{padding:14px 16px 10px;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:flex-start}
+.dhead h3{margin:0;font-size:15px;line-height:1.35;word-break:break-word}
+.dhead .x{margin-left:auto;border:1px solid var(--border);background:var(--bg);border-radius:8px;width:34px;height:34px;flex:none}
+.dbody{overflow:auto;padding:14px 16px 24px;flex:1}
+.ov{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-bottom:12px}
+.ov div{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 10px}
+.ov small{display:block;color:var(--muted);font-size:12px}
+.ov span{font-size:13px;word-break:break-word}
+.hint{border-left:3px solid var(--warn);background:var(--warn-soft);border-radius:0 8px 8px 0;padding:8px 12px;margin-bottom:12px;font-size:13px}
+.fp{font-size:12px;color:var(--muted);margin-bottom:12px;word-break:break-all}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:12px;overflow-x:auto}
+.tabs button{border:0;background:transparent;padding:8px 12px;border-bottom:2px solid transparent;white-space:nowrap;color:var(--muted)}
+.tabs button[aria-selected="true"]{color:var(--text);border-bottom-color:var(--accent);font-weight:600}
+
+.node{position:relative;margin:0 0 6px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);margin-left:calc(var(--d,0) * 18px);border-left:3px solid var(--nc,var(--vend))}
+.node.n-mw{--nc:var(--mw)}.node.n-ctl{--nc:var(--ctl)}.node.n-svc{--nc:var(--svc)}
+.node.n-repo{--nc:var(--repo)}.node.n-job{--nc:var(--job)}.node.n-cmd{--nc:var(--cmd)}.node.n-oth{--nc:var(--oth)}.node.n-vend{--nc:var(--vend)}
+.node.errnode{background:var(--err-soft);border-color:var(--err);border-left-color:var(--err)}
+.node .sig{font-weight:600;word-break:break-word}
+.node .file{color:var(--muted);font-size:12px;word-break:break-all}
+.node .tag{font-size:12px;color:var(--err);font-weight:600;margin-top:2px}
+.node .tag.o{color:var(--accent)}
+.node .nnote{font-size:12.5px;color:var(--muted);margin-top:2px;word-break:break-word}
+.vtoggle{border:0;background:transparent;padding:0;color:var(--muted);text-align:left}
+.vtoggle:hover{color:var(--text)}
+.vs{margin:6px 0 2px;padding-left:16px;font-size:12px;color:var(--muted)}
+.vs li{margin:1px 0;word-break:break-all}
+
+.exc{border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;background:var(--bg)}
+.exc.root{border-color:var(--err)}
+.exc .cls{font-weight:600;word-break:break-all}
+.exc pre{white-space:pre-wrap;word-break:break-word;margin:6px 0;font-size:12.5px}
+.exc .f{color:var(--muted);font-size:12px;word-break:break-all}
+.arrow{text-align:center;color:var(--muted);margin:-2px 0 6px;font-size:12px}
+.kv{width:100%;font-size:12.5px;margin-top:6px}
+.kv td,.kv th{padding:3px 8px;border:1px solid var(--border)}
+.kv th{background:var(--panel2);color:var(--muted)}
+
+.rawbar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;color:var(--muted);font-size:12.5px;flex-wrap:wrap}
+.samples{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.samples button{border:1px solid var(--border);background:transparent;border-radius:999px;padding:2px 10px;font-size:12.5px}
+.samples button[aria-pressed="true"]{background:var(--text);color:var(--bg);border-color:var(--text)}
+pre.raw{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;overflow:auto;font-size:12px;line-height:1.55;margin:0;max-height:60vh;white-space:pre}
+.rel-item{display:flex;gap:8px;align-items:center;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer;background:var(--bg)}
+.rel-item:hover{background:var(--panel2)}
+h4{margin:16px 0 6px;font-size:13px}
+@media (prefers-reduced-motion: reduce){.drawer,.scrim{transition:none}}
+</style>
+</head>
+<body>
+<noscript><div style="padding:16px;font-family:sans-serif">Laporan ini membutuhkan JavaScript untuk ditampilkan.</div></noscript>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <h1 id="title">Laravel Log Report</h1>
+      <div class="sub" id="fileinfo"></div>
+    </div>
+    <button class="btn" id="theme">Tema</button>
+  </div>
+
+  <div class="note" id="modenote"></div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="panel">
+    <h2>Timeline <small id="tlinfo">Klik satu batang untuk memfilter waktu</small></h2>
+    <div class="tl" id="tl"></div>
+    <div class="tl-axis"><span id="tl-a"></span><span id="tl-b"></span></div>
+  </div>
+
+  <div class="panel">
+    <div class="filters">
+      <input type="search" id="q" placeholder="Cari pesan, class, method, file…" aria-label="Cari">
+      <select id="f-level" aria-label="Level"></select>
+      <select id="f-origin" aria-label="Origin"></select>
+      <select id="f-layer" aria-label="Layer"></select>
+      <select id="f-exc" aria-label="Exception"></select>
+    </div>
+    <div class="filters" style="padding-top:0">
+      <label>Dari <input type="time" id="t-from" step="1"></label>
+      <label>Sampai <input type="time" id="t-to" step="1"></label>
+      <label>Urutkan
+        <select id="sort">
+          <option value="count">Jumlah terbanyak</option>
+          <option value="last">Terbaru</option>
+          <option value="first">Terlama</option>
+        </select>
+      </label>
+      <label class="chk"><input type="checkbox" id="apponly"> Hanya frame app</label>
+      <button class="btn" id="reset">Reset filter</button>
+    </div>
+    <div class="chips" id="chips"></div>
+  </div>
+
+  <div class="panel">
+    <div class="views" role="group" aria-label="Kelompokkan berdasarkan">
+      <button data-view="exc" aria-pressed="true">Per exception</button>
+      <button data-view="errClass" aria-pressed="false">Per class / layer</button>
+      <button data-view="endpoint" aria-pressed="false">Per endpoint / job</button>
+    </div>
+    <div class="tablewrap" id="tablewrap"></div>
+  </div>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-hidden="true" role="dialog" aria-label="Detail error"></aside>
+
+<script>
+const REPORT={"meta":{"version":"1.1.0","files":["sample.log"],"title":"Laravel Log Report","generatedAt":"2026-09-21T06:45:22.614Z","minLevel":"WARNING","from":null,"to":null,"date":null,"tail":null,"entries":6,"kept":5,"dropped":0,"maxGroups":2000,"bytes":37307,"seconds":0,"reduced":false,"masked":false,"samples":3,"maxOcc":500},"groups":[{"id":"g1","level":"ERROR","origin":"HTTP","endpoint":"PrintMedicalRecordMcuController","errClass":"PrintMedicalRecordMcuService","title":"Illuminate\\Http\\Client\\ConnectionException","msg1":"cURL error 28: Operation timed out after 50023 milliseconds with 0 bytes received (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for http://192.0.2.10:3000/api/v1/medical-records/results/generate","fp":"Illuminate\\Http\\Client\\ConnectionException|cURL error \u003cn>: Operation timed out after \u003cdur> with \u003cn> bytes received (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for http://\u003cip>/api/v\u003cn>/medical-records/results/generate|app/Services/MedicalRecords/Mcu/PrintMedicalRecordMcuService.php:1326","exceptions":[{"cls":"Illuminate\\Http\\Client\\ConnectionException","role":"wrapper","file":"vendor/laravel/framework/src/Illuminate/Http/Client/PendingRequest.php","line":855,"msg":"cURL error 28: Operation timed out after 50023 milliseconds with 0 bytes received (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for http://192.0.2.10:3000/api/v1/medical-records/results/generate"},{"cls":"GuzzleHttp\\Exception\\ConnectException","role":"root","file":"vendor/guzzlehttp/guzzle/src/Handler/CurlFactory.php","line":277,"msg":"cURL error 28: Operation timed out after 50023 milliseconds with 0 bytes received (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for http://192.0.2.10:3000/api/v1/medical-records/results/generate"}],"chain":[{"layer":"Vendor","vendor":24,"samples":["{main}","public/index.php:51","Illuminate\\Foundation\\Http\\Kernel->handle","Illuminate\\Foundation\\Http\\Kernel->sendRequestThroughRouter"]},{"layer":"Middleware","cls":"VerifyTokenMiddleware","method":"handle","line":97,"file":"app/Http/Middleware/VerifyTokenMiddleware.php"},{"layer":"Vendor","vendor":1,"samples":["Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}"]},{"layer":"Middleware","cls":"PermissionMiddleware","method":"handle","line":36,"file":"app/Http/Middleware/PermissionMiddleware.php"},{"layer":"Vendor","vendor":6,"samples":["Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}","Illuminate\\Routing\\Router->Illuminate\\Routing\\{closure}","Illuminate\\Routing\\Route->run","Illuminate\\Routing\\Route->runController"]},{"layer":"Controller","cls":"PrintMedicalRecordMcuController","method":"__invoke","line":54,"file":"app/Http/Controllers/Api/MedicalRecords/Mcu/PrintMedicalRecordMcuController.php"},{"layer":"Service","cls":"PrintMedicalRecordMcuService","method":"previewResultMedicalRecord","line":1399,"file":"app/Services/MedicalRecords/Mcu/PrintMedicalRecordMcuService.php"},{"layer":"Service","cls":"PrintMedicalRecordMcuService","method":"generatePdfServer","line":1326,"file":"app/Services/MedicalRecords/Mcu/PrintMedicalRecordMcuService.php","origin":true},{"layer":"Vendor","vendor":15,"samples":["Illuminate\\Http\\Client\\PendingRequest->post","Illuminate\\Http\\Client\\PendingRequest->send","retry","Illuminate\\Http\\Client\\PendingRequest->Illuminate\\Http\\Client\\{closure}"],"err":true,"note":"cURL error 28: Operation timed out after 50023 milliseconds with 0 bytes received (see https://curl.haxx.se/libcurl/c/li…"}],"errNode":{"layer":"Service","cls":"PrintMedicalRecordMcuService","method":"generatePdfServer","line":1326,"file":"app/Services/MedicalRecords/Mcu/PrintMedicalRecordMcuService.php"},"layers":["Middleware","Controller","Service"],"hint":"Request keluar tidak dibalas tepat waktu oleh 192.0.2.10:3000. Cek kesehatan service tujuan dan nilai timeout pada Http::timeout(). Untuk proses berat (mis. generate PDF), pertimbangkan memakai queue.","count":1,"first":1789989092,"last":1789989092,"m":[[1789989060000,1]],"occ":[1789989092],"samples":[{"t":1789989092,"raw":"GuzzleHttp\\Exception\\ConnectException: cURL error 28: Operation timed out after 50023 milliseconds with 0 bytes received (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for http://192.0.2.10:3000/api/v1/medical-records/results/generate in /usr/share/nginx/html/portal-seemedik-api/vendor/guzzlehttp/guzzle/src/Handler/CurlFactory.php:277\nStack trace:\n#0 /usr/share/nginx/html/portal-seemedik-api/vendor/guzzlehttp/guzzle/src/Handler/CurlFactory.php(207): GuzzleHttp\\Handler\\CurlFactory::createRejection()\n#1 /usr/share/nginx/html/portal-seemedik-api/vendor/guzzlehttp/guzzle/src/Handler/CurlFactory.php(159): GuzzleHttp\\Handler\\CurlFactory::finishError()\n#2 /usr/share/nginx/html/portal-seemedik-api/vendor/guzzlehttp/guzzle/src/Handler/CurlHandler.php(47): GuzzleHttp\\Handler\\CurlFactory::finish()\n#3 /usr/share/nginx/html/portal-seemedik-api/vendor/guzzlehttp/guzzle/src/Handler/Proxy.php(28): GuzzleHttp\\Handler\\CurlHandler->__invoke()\n#4 /usr/share/nginx/html/portal-seemedik-api/vendor/guzzlehttp/guzzle/src/Handler/Proxy.php(48): GuzzleHttp\\Handler\\Proxy::GuzzleHttp\\Handler\\{closure}()\n#5 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Http/Client/PendingRequest.php(1150): GuzzleHttp\\Handler\\Proxy::GuzzleHttp\\Handler\\{closure}()\n#6 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Http/Client/PendingRequest.php(1116): Illuminate\\Http\\Client\\PendingRequest->Illuminate\\Http\\Client\\{closure}()\n#7 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Http/Client/PendingRequest.php(1102): Illuminate\\Http\\Client\\PendingRequest->Illuminate\\Http\\Client\\{closure}()\n#8 /usr/share/nginx/html/portal-seemedik-api/vendor/guzzlehttp/guzzle/src/Client.php(333): GuzzleHttp\\HandlerStack->__invoke()\n#9 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Http/Client/PendingRequest.php(961): GuzzleHttp\\Client->request()\n#10 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Http/Client/PendingRequest.php(823): Illuminate\\Http\\Client\\PendingRequest->sendRequest()\n#11 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Support/helpers.php(260): Illuminate\\Http\\Client\\PendingRequest->Illuminate\\Http\\Client\\{closure}()\n#12 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Http/Client/PendingRequest.php(821): retry()\n#13 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Http/Client/PendingRequest.php(727): Illuminate\\Http\\Client\\PendingRequest->send()\n#14 /usr/share/nginx/html/portal-seemedik-api/app/Services/MedicalRecords/Mcu/PrintMedicalRecordMcuService.php(1326): Illuminate\\Http\\Client\\PendingRequest->post('http://192.0.2.10:30...', Array)\n#15 /usr/share/nginx/html/portal-seemedik-api/app/Services/MedicalRecords/Mcu/PrintMedicalRecordMcuService.php(1399): App\\Services\\MedicalRecords\\Mcu\\PrintMedicalRecordMcuService->generatePdfServer()\n#16 /usr/share/nginx/html/portal-seemedik-api/app/Http/Controllers/Api/MedicalRecords/Mcu/PrintMedicalRecordMcuController.php(54): App\\Services\\MedicalRecords\\Mcu\\PrintMedicalRecordMcuService->previewResultMedicalRecord()\n#17 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Controller.php(54): App\\Http\\Controllers\\Api\\MedicalRecords\\Mcu\\PrintMedicalRecordMcuController->__invoke()\n#18 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/ControllerDispatcher.php(43): Illuminate\\Routing\\Controller->callAction()\n#19 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Route.php(259): Illuminate\\Routing\\ControllerDispatcher->dispatch()\n#20 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Route.php(205): Illuminate\\Routing\\Route->runController()\n#21 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Router.php(798): Illuminate\\Routing\\Route->run()\n#22 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(141): Illuminate\\Routing\\Router->Illuminate\\Routing\\{closure}()\n#23 /usr/share/nginx/html/portal-seemedik-api/app/Http/Middleware/PermissionMiddleware.php(36): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()\n#24 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): App\\Http\\Middleware\\PermissionMiddleware->handle()\n#25 /usr/share/nginx/html/portal-seemedik-api/app/Http/Middleware/VerifyTokenMiddleware.php(97): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()\n#26 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): App\\Http\\Middleware\\VerifyTokenMiddleware->handle()\n#27 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Middleware/SubstituteBindings.php(50): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()\n#28 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Routing\\Middleware\\SubstituteBindings->handle()\n#29 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(116): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()\n#30 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Router.php(797): Illuminate\\Pipeline\\Pipeline->then()\n#31 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Router.php(776): Illuminate\\Routing\\Router->runRouteWithinStack()\n#32 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Router.php(740): Illuminate\\Routing\\Router->runRoute()\n#33 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Router.php(729): Illuminate\\Routing\\Router->dispatchToRoute()\n#34 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(190): Illuminate\\Routing\\Router->dispatch()\n#35 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(141): Illuminate\\Foundation\\Http\\Kernel->Illuminate\\Foundation\\Http\\{closure}()\n#36 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TransformsRequest.php(21): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()\n#37 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/ConvertEmptyStringsToNull.php(31): Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest->handle()\n#38 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\ConvertEmptyStringsToNull->handle()\n#39 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TrimStrings.php(40): Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest->handle()\n#40 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\TrimStrings->handle()\n#41 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/ValidatePostSize.php(27): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()\n#42 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\ValidatePostSize->handle()\n#43 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Http/Middleware/HandleCors.php(62): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()\n#44 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Http\\Middleware\\HandleCors->handle()\n#45 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(116): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()\n#46 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(165): Illuminate\\Pipeline\\Pipeline->then()\n#47 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(134): Illuminate\\Foundation\\Http\\Kernel->sendRequestThroughRouter()\n#48 /usr/share/nginx/html/portal-seemedik-api/public/index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle()\n#49 {main}\n\nNext Illuminate\\Http\\Client\\ConnectionException: cURL error 28: Operation timed out after 50023 milliseconds with 0 bytes received (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for http://192.0.2.10:3000/api/v1/medical-records/results/generate in /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Http/Client/PendingRequest.php:855\nStack trace:\n#0 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Support/helpers.php(260): Illuminate\\Http\\Client\\PendingRequest->Illuminate\\Http\\Client\\{closure}()\n#1 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Http/Client/PendingRequest.php(821): retry()\n#2 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Http/Client/PendingRequest.php(727): Illuminate\\Http\\Client\\PendingRequest->send()\n#3 /usr/share/nginx/html/portal-seemedik-api/app/Services/MedicalRecords/Mcu/PrintMedicalRecordMcuService.php(1326): Illuminate\\Http\\Client\\PendingRequest->post('http://192.0.2.10:30...', Array)\n#4 /usr/share/nginx/html/portal-seemedik-api/app/Services/MedicalRecords/Mcu/PrintMedicalRecordMcuService.php(1399): App\\Services\\MedicalRecords\\Mcu\\PrintMedicalRecordMcuService->generatePdfServer()\n#5 /usr/share/nginx/html/portal-seemedik-api/app/Http/Controllers/Api/MedicalRecords/Mcu/PrintMedicalRecordMcuController.php(54): App\\Services\\MedicalRecords\\Mcu\\PrintMedicalRecordMcuService->previewResultMedicalRecord()\n#6 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Controller.php(54): App\\Http\\Controllers\\Api\\MedicalRecords\\Mcu\\PrintMedicalRecordMcuController->__invoke()\n#7 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/ControllerDispatcher.php(43): Illuminate\\Routing\\Controller->callAction()\n#8 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Route.php(259): Illuminate\\Routing\\ControllerDispatcher->dispatch()\n#9 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Route.php(205): Illuminate\\Routing\\Route->runController()\n#10 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Router.php(798): Illuminate\\Routing\\Route->run()\n#11 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(141): Illuminate\\Routing\\Router->Illuminate\\Routing\\{closure}()\n#12 /usr/share/nginx/html/portal-seemedik-api/app/Http/Middleware/PermissionMiddleware.php(36): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()\n#13 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): App\\Http\\Middleware\\PermissionMiddleware->handle()\n#14 /usr/share/nginx/html/portal-seemedik-api/app/Http/Middleware/VerifyTokenMiddleware.php(97): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()\n#15 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): App\\Http\\Middleware\\VerifyTokenMiddleware->handle()\n#16 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Middleware/SubstituteBindings.php(50): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()\n#17 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Routing\\Middleware\\SubstituteBindings->handle()\n#18 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(116): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()\n#19 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Router.php(797): Illuminate\\Pipeline\\Pipeline->then()\n#20 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Router.php(776): Illuminate\\Routing\\Router->runRouteWithinStack()\n#21 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Router.php(740): Illuminate\\Routing\\Router->runRoute()\n#22 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Router.php(729): Illuminate\\Routing\\Router->dispatchToRoute()\n#23 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(190): Illuminate\\Routing\\Router->dispatch()\n#24 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(141): Illuminate\\Foundation\\Http\\Kernel->Illuminate\\Foundation\\Http\\{closure}()\n#25 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TransformsRequest.php(21): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()\n#26 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/ConvertEmptyStringsToNull.php(31): Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest->handle()\n#27 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\ConvertEmptyStringsToNull->handle()\n#28 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TrimStrings.php(40): Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest->handle()\n#29 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\TrimStrings->handle()\n#30 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/ValidatePostSize.php(27): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()\n#31 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\ValidatePostSize->handle()\n#32 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Http/Middleware/HandleCors.php(62): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()\n#33 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Http\\Middleware\\HandleCors->handle()\n#34 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(116): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()\n#35 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(165): Illuminate\\Pipeline\\Pipeline->then()\n#36 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(134): Illuminate\\Foundation\\Http\\Kernel->sendRequestThroughRouter()\n#37 /usr/share/nginx/html/portal-seemedik-api/public/index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle()\n#38 {main}  "}],"related":["g2"]},{"id":"g2","level":"ERROR","origin":"HTTP","endpoint":"PrintMedicalRecordMcuController","errClass":"PrintMedicalRecordMcuService","title":"Exception","msg1":"Failed to Print Data","fp":"Exception|Failed to Print Data|app/Services/MedicalRecords/Mcu/PrintMedicalRecordMcuService.php:1347","exceptions":[{"cls":"Exception","role":"root","file":"app/Services/MedicalRecords/Mcu/PrintMedicalRecordMcuService.php","line":1347,"msg":"Failed to Print Data"}],"chain":[{"layer":"Vendor","vendor":24,"samples":["{main}","public/index.php:51","Illuminate\\Foundation\\Http\\Kernel->handle","Illuminate\\Foundation\\Http\\Kernel->sendRequestThroughRouter"]},{"layer":"Middleware","cls":"VerifyTokenMiddleware","method":"handle","line":97,"file":"app/Http/Middleware/VerifyTokenMiddleware.php"},{"layer":"Vendor","vendor":1,"samples":["Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}"]},{"layer":"Middleware","cls":"PermissionMiddleware","method":"handle","line":36,"file":"app/Http/Middleware/PermissionMiddleware.php"},{"layer":"Vendor","vendor":6,"samples":["Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}","Illuminate\\Routing\\Router->Illuminate\\Routing\\{closure}","Illuminate\\Routing\\Route->run","Illuminate\\Routing\\Route->runController"]},{"layer":"Controller","cls":"PrintMedicalRecordMcuController","method":"__invoke","line":54,"file":"app/Http/Controllers/Api/MedicalRecords/Mcu/PrintMedicalRecordMcuController.php"},{"layer":"Service","cls":"PrintMedicalRecordMcuService","method":"previewResultMedicalRecord","line":1399,"file":"app/Services/MedicalRecords/Mcu/PrintMedicalRecordMcuService.php"},{"layer":"Service","cls":"PrintMedicalRecordMcuService","method":"generatePdfServer","line":1347,"file":"app/Services/MedicalRecords/Mcu/PrintMedicalRecordMcuService.php","origin":true,"err":true}],"errNode":{"layer":"Service","cls":"PrintMedicalRecordMcuService","method":"generatePdfServer","line":1347,"file":"app/Services/MedicalRecords/Mcu/PrintMedicalRecordMcuService.php"},"layers":["Middleware","Controller","Service"],"hint":null,"count":1,"first":1789989092,"last":1789989092,"m":[[1789989060000,1]],"occ":[1789989092],"samples":[{"t":1789989092,"raw":"Exception: Failed to Print Data in /usr/share/nginx/html/portal-seemedik-api/app/Services/MedicalRecords/Mcu/PrintMedicalRecordMcuService.php:1347\nStack trace:\n#0 /usr/share/nginx/html/portal-seemedik-api/app/Services/MedicalRecords/Mcu/PrintMedicalRecordMcuService.php(1399): App\\Services\\MedicalRecords\\Mcu\\PrintMedicalRecordMcuService->generatePdfServer()\n#1 /usr/share/nginx/html/portal-seemedik-api/app/Http/Controllers/Api/MedicalRecords/Mcu/PrintMedicalRecordMcuController.php(54): App\\Services\\MedicalRecords\\Mcu\\PrintMedicalRecordMcuService->previewResultMedicalRecord()\n#2 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Controller.php(54): App\\Http\\Controllers\\Api\\MedicalRecords\\Mcu\\PrintMedicalRecordMcuController->__invoke()\n#3 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/ControllerDispatcher.php(43): Illuminate\\Routing\\Controller->callAction()\n#4 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Route.php(259): Illuminate\\Routing\\ControllerDispatcher->dispatch()\n#5 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Route.php(205): Illuminate\\Routing\\Route->runController()\n#6 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Router.php(798): Illuminate\\Routing\\Route->run()\n#7 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(141): Illuminate\\Routing\\Router->Illuminate\\Routing\\{closure}()\n#8 /usr/share/nginx/html/portal-seemedik-api/app/Http/Middleware/PermissionMiddleware.php(36): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()\n#9 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): App\\Http\\Middleware\\PermissionMiddleware->handle()\n#10 /usr/share/nginx/html/portal-seemedik-api/app/Http/Middleware/VerifyTokenMiddleware.php(97): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()\n#11 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): App\\Http\\Middleware\\VerifyTokenMiddleware->handle()\n#12 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Middleware/SubstituteBindings.php(50): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()\n#13 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Routing\\Middleware\\SubstituteBindings->handle()\n#14 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(116): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()\n#15 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Router.php(797): Illuminate\\Pipeline\\Pipeline->then()\n#16 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Router.php(776): Illuminate\\Routing\\Router->runRouteWithinStack()\n#17 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Router.php(740): Illuminate\\Routing\\Router->runRoute()\n#18 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Router.php(729): Illuminate\\Routing\\Router->dispatchToRoute()\n#19 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(190): Illuminate\\Routing\\Router->dispatch()\n#20 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(141): Illuminate\\Foundation\\Http\\Kernel->Illuminate\\Foundation\\Http\\{closure}()\n#21 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TransformsRequest.php(21): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()\n#22 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/ConvertEmptyStringsToNull.php(31): Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest->handle()\n#23 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\ConvertEmptyStringsToNull->handle()\n#24 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TrimStrings.php(40): Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest->handle()\n#25 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\TrimStrings->handle()\n#26 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/ValidatePostSize.php(27): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()\n#27 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\ValidatePostSize->handle()\n#28 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Http/Middleware/HandleCors.php(62): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()\n#29 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Http\\Middleware\\HandleCors->handle()\n#30 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(116): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()\n#31 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(165): Illuminate\\Pipeline\\Pipeline->then()\n#32 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(134): Illuminate\\Foundation\\Http\\Kernel->sendRequestThroughRouter()\n#33 /usr/share/nginx/html/portal-seemedik-api/public/index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle()\n#34 {main}  "}],"related":["g1"]},{"id":"g3","level":"ERROR","origin":"Queue","endpoint":"GenerateCriticalCaseJob","errClass":"CriticalParameterResultRepository","title":"PDOException","msg1":"SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint \"critical_parameter_results_registration_product_id_examination_\"","fp":"PDOException|SQLSTATE[\u003cn>]: Unique violation: \u003cn> ERROR:  duplicate key value violates unique constraint \"critical_parameter_results_registration_product_id_examination_\"|app/Repositories/CriticalParameters/CriticalParameterResultRepository.php:29","exceptions":[{"cls":"PDOException","role":"root","file":"vendor/laravel/framework/src/Illuminate/Database/Connection.php","line":545,"msg":"SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint \"critical_parameter_results_registration_product_id_examination_\"\nDETAIL:  Key (registration_product_id, examination_item_id, description_detail_id, critical_category)=(00000000-0000-4000-8000-000000000001, 00000000-0000-4000-8000-000000000002, 00000000-0000-4000-8000-000000000003, URGENT) already exists."}],"chain":[{"layer":"Vendor","vendor":1,"samples":["{main}"]},{"layer":"Command","cls":"artisan","method":"","line":35,"file":"artisan"},{"layer":"Vendor","vendor":31,"samples":["Illuminate\\Foundation\\Console\\Kernel->handle","Illuminate\\Console\\Application->run","Symfony\\Component\\Console\\Application->run","Symfony\\Component\\Console\\Application->doRun"]},{"layer":"Job","cls":"GenerateCriticalCaseJob","method":"handle","line":69,"file":"app/Jobs/BulkProcesses/GenerateCriticalCases/GenerateCriticalCaseJob.php"},{"layer":"Service","cls":"GenerateCriticalCaseService","method":"generateCriticalCase","line":245,"file":"app/Services/MedicalRecords/BulkProcess/GenerateCriticalCases/GenerateCriticalCaseService.php"},{"layer":"Service","cls":"CriticalParameterResultService","method":"storeCriticalParameterResult","line":123,"file":"app/Services/MedicalRecords/BulkProcess/GenerateCriticalCases/CriticalParameterResultService.php"},{"layer":"Repository","cls":"CriticalParameterResultRepository","method":"createCriticalParameterResult","line":29,"file":"app/Repositories/CriticalParameters/CriticalParameterResultRepository.php","origin":true},{"layer":"Vendor","vendor":15,"samples":["Illuminate\\Database\\Eloquent\\Model::__callStatic","Illuminate\\Database\\Eloquent\\Model->__call","Illuminate\\Database\\Eloquent\\Model->forwardCallTo","Illuminate\\Database\\Eloquent\\Builder->create"],"err":true,"note":"SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint \"critical_parameter_results_…"}],"errNode":{"layer":"Repository","cls":"CriticalParameterResultRepository","method":"createCriticalParameterResult","line":29,"file":"app/Repositories/CriticalParameters/CriticalParameterResultRepository.php"},"layers":["Command","Job","Service","Repository"],"hint":"Insert melanggar unique constraint. Pertimbangkan updateOrCreate / upsert / insertOrIgnore, dan pastikan job idempotent jika di-retry atau di-dispatch dua kali.","count":1,"first":1789989365,"last":1789989365,"m":[[1789989360000,1]],"occ":[1789989365],"samples":[{"t":1789989365,"raw":"PDOException: SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint \"critical_parameter_results_registration_product_id_examination_\"\nDETAIL:  Key (registration_product_id, examination_item_id, description_detail_id, critical_category)=(00000000-0000-4000-8000-000000000001, 00000000-0000-4000-8000-000000000002, 00000000-0000-4000-8000-000000000003, URGENT) already exists. in /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Database/Connection.php:545\nStack trace:\n#0 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Database/Connection.php(545): PDOStatement->execute()\n#1 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Database/Connection.php(753): Illuminate\\Database\\Connection->Illuminate\\Database\\{closure}()\n#2 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Database/Connection.php(720): Illuminate\\Database\\Connection->runQueryCallback()\n#3 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Database/Connection.php(534): Illuminate\\Database\\Connection->run()\n#4 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Database/Connection.php(498): Illuminate\\Database\\Connection->statement()\n#5 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Database/Query/Builder.php(3272): Illuminate\\Database\\Connection->insert()\n#6 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Database/Eloquent/Builder.php(1869): Illuminate\\Database\\Query\\Builder->insert()\n#7 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Database/Eloquent/Model.php(1306): Illuminate\\Database\\Eloquent\\Builder->__call()\n#8 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Database/Eloquent/Model.php(1138): Illuminate\\Database\\Eloquent\\Model->performInsert()\n#9 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Database/Eloquent/Builder.php(986): Illuminate\\Database\\Eloquent\\Model->save()\n#10 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Support/helpers.php(319): Illuminate\\Database\\Eloquent\\Builder->Illuminate\\Database\\Eloquent\\{closure}()\n#11 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Database/Eloquent/Builder.php(985): tap()\n#12 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Support/Traits/ForwardsCalls.php(23): Illuminate\\Database\\Eloquent\\Builder->create()\n#13 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Database/Eloquent/Model.php(2330): Illuminate\\Database\\Eloquent\\Model->forwardCallTo()\n#14 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Database/Eloquent/Model.php(2342): Illuminate\\Database\\Eloquent\\Model->__call()\n#15 /usr/share/nginx/html/portal-seemedik-api/app/Repositories/CriticalParameters/CriticalParameterResultRepository.php(29): Illuminate\\Database\\Eloquent\\Model::__callStatic()\n#16 /usr/share/nginx/html/portal-seemedik-api/app/Services/MedicalRecords/BulkProcess/GenerateCriticalCases/CriticalParameterResultService.php(123): App\\Repositories\\CriticalParameters\\CriticalParameterResultRepository->createCriticalParameterResult()\n#17 /usr/share/nginx/html/portal-seemedik-api/app/Services/MedicalRecords/BulkProcess/GenerateCriticalCases/GenerateCriticalCaseService.php(245): App\\Services\\MedicalRecords\\BulkProcess\\GenerateCriticalCases\\CriticalParameterResultService->storeCriticalParameterResult()\n#18 /usr/share/nginx/html/portal-seemedik-api/app/Jobs/BulkProcesses/GenerateCriticalCases/GenerateCriticalCaseJob.php(69): App\\Services\\MedicalRecords\\BulkProcess\\GenerateCriticalCases\\GenerateCriticalCaseService->generateCriticalCase()\n#19 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(36): App\\Jobs\\BulkProcesses\\GenerateCriticalCases\\GenerateCriticalCaseJob->handle()\n#20 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Container/Util.php(41): Illuminate\\Container\\BoundMethod::Illuminate\\Container\\{closure}()\n#21 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(93): Illuminate\\Container\\Util::unwrapIfClosure()\n#22 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(35): Illuminate\\Container\\BoundMethod::callBoundMethod()\n#23 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Container/Container.php(661): Illuminate\\Container\\BoundMethod::call()\n#24 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Bus/Dispatcher.php(128): Illuminate\\Container\\Container->call()\n#25 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(141): Illuminate\\Bus\\Dispatcher->Illuminate\\Bus\\{closure}()\n#26 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(116): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()\n#27 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Bus/Dispatcher.php(132): Illuminate\\Pipeline\\Pipeline->then()\n#28 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Queue/CallQueuedHandler.php(123): Illuminate\\Bus\\Dispatcher->dispatchNow()\n#29 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Queue/CallQueuedHandler.php(122): Illuminate\\Pipeline\\Pipeline->then()\n#30 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Queue/CallQueuedHandler.php(70): Illuminate\\Queue\\CallQueuedHandler->dispatchThroughMiddleware()\n#31 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Queue/Jobs/Job.php(98): Illuminate\\Queue\\CallQueuedHandler->call()\n#32 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Queue/Worker.php(425): Illuminate\\Queue\\Jobs\\Job->fire()\n#33 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Queue/Worker.php(375): Illuminate\\Queue\\Worker->process()\n#34 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Queue/Worker.php(173): Illuminate\\Queue\\Worker->runJob()\n#35 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Queue/Console/WorkCommand.php(147): Illuminate\\Queue\\Worker->daemon()\n#36 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Queue/Console/WorkCommand.php(130): Illuminate\\Queue\\Console\\WorkCommand->runWorker()\n#37 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(36): Illuminate\\Queue\\Console\\WorkCommand->handle()\n#38 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Container/Util.php(41): Illuminate\\Container\\BoundMethod::Illuminate\\Container\\{closure}()\n#39 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(93): Illuminate\\Container\\Util::unwrapIfClosure()\n#40 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(35): Illuminate\\Container\\BoundMethod::callBoundMethod()\n#41 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Container/Container.php(661): Illuminate\\Container\\BoundMethod::call()\n#42 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Console/Command.php(183): Illuminate\\Container\\Container->call()\n#43 /usr/share/nginx/html/portal-seemedik-api/vendor/symfony/console/Command/Command.php(326): Illuminate\\Console\\Command->execute()\n#44 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Console/Command.php(152): Symfony\\Component\\Console\\Command\\Command->run()\n#45 /usr/share/nginx/html/portal-seemedik-api/vendor/symfony/console/Application.php(1083): Illuminate\\Console\\Command->run()\n#46 /usr/share/nginx/html/portal-seemedik-api/vendor/symfony/console/Application.php(324): Symfony\\Component\\Console\\Application->doRunCommand()\n#47 /usr/share/nginx/html/portal-seemedik-api/vendor/symfony/console/Application.php(175): Symfony\\Component\\Console\\Application->doRun()\n#48 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Console/Application.php(102): Symfony\\Component\\Console\\Application->run()\n#49 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Foundation/Console/Kernel.php(155): Illuminate\\Console\\Application->run()\n#50 /usr/share/nginx/html/portal-seemedik-api/artisan(35): Illuminate\\Foundation\\Console\\Kernel->handle()\n#51 {main}  "}],"related":[]},{"id":"g4","level":"ERROR","origin":"HTTP","endpoint":"McuResultController","errClass":"McuResultService","title":"ErrorException","msg1":"Undefined array key \"patient_id\"","fp":"ErrorException|Undefined array key \"patient_id\"|app/Services/MedicalRecords/Mcu/McuResultService.php:212","exceptions":[{"cls":"ErrorException","role":"root","file":"app/Services/MedicalRecords/Mcu/McuResultService.php","line":212,"msg":"Undefined array key \"patient_id\""}],"chain":[{"layer":"Vendor","vendor":24,"samples":["{main}","public/index.php:51","Illuminate\\Foundation\\Http\\Kernel->handle","Illuminate\\Foundation\\Http\\Kernel->sendRequestThroughRouter"]},{"layer":"Middleware","cls":"VerifyTokenMiddleware","method":"handle","line":97,"file":"app/Http/Middleware/VerifyTokenMiddleware.php"},{"layer":"Vendor","vendor":1,"samples":["Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}"]},{"layer":"Middleware","cls":"PermissionMiddleware","method":"handle","line":36,"file":"app/Http/Middleware/PermissionMiddleware.php"},{"layer":"Vendor","vendor":6,"samples":["Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}","Illuminate\\Routing\\Router->Illuminate\\Routing\\{closure}","Illuminate\\Routing\\Route->run","Illuminate\\Routing\\Route->runController"]},{"layer":"Controller","cls":"McuResultController","method":"__invoke","line":41,"file":"app/Http/Controllers/Api/MedicalRecords/Mcu/McuResultController.php"},{"layer":"Service","cls":"McuResultService","method":"buildResultPayload","line":212,"file":"app/Services/MedicalRecords/Mcu/McuResultService.php","origin":true,"err":true}],"errNode":{"layer":"Service","cls":"McuResultService","method":"buildResultPayload","line":212,"file":"app/Services/MedicalRecords/Mcu/McuResultService.php"},"layers":["Middleware","Controller","Service"],"hint":"Key atau variabel belum ada. Validasi input (FormRequest) atau pakai null-safe access dan nilai default.","count":1,"first":1789989610,"last":1789989610,"m":[[1789989600000,1]],"occ":[1789989610],"samples":[{"t":1789989610,"raw":"Undefined array key \"patient_id\" {\"userId\":12} {\"exception\":\"[object] (ErrorException(code: 0): Undefined array key \"patient_id\" at /usr/share/nginx/html/portal-seemedik-api/app/Services/MedicalRecords/Mcu/McuResultService.php:212)\n[stacktrace]\n#0 /usr/share/nginx/html/portal-seemedik-api/app/Services/MedicalRecords/Mcu/McuResultService.php(212): Illuminate\\Foundation\\Bootstrap\\HandleExceptions->handleError(2, 'Undefined arra...', '/usr/share/nginx/html/portal-seemedik-api/app/Services/MedicalRecords/Mcu/McuResultService.php', 212)\n#1 /usr/share/nginx/html/portal-seemedik-api/app/Http/Controllers/Api/MedicalRecords/Mcu/McuResultController.php(41): App\\Services\\MedicalRecords\\Mcu\\McuResultService->buildResultPayload()\n#2 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Controller.php(54): App\\Http\\Controllers\\Api\\MedicalRecords\\Mcu\\McuResultController->__invoke()\n#3 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/ControllerDispatcher.php(43): Illuminate\\Routing\\Controller->callAction()\n#4 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Route.php(259): Illuminate\\Routing\\ControllerDispatcher->dispatch()\n#5 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Route.php(205): Illuminate\\Routing\\Route->runController()\n#6 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Router.php(798): Illuminate\\Routing\\Route->run()\n#7 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(141): Illuminate\\Routing\\Router->Illuminate\\Routing\\{closure}()\n#8 /usr/share/nginx/html/portal-seemedik-api/app/Http/Middleware/PermissionMiddleware.php(36): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()\n#9 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): App\\Http\\Middleware\\PermissionMiddleware->handle()\n#10 /usr/share/nginx/html/portal-seemedik-api/app/Http/Middleware/VerifyTokenMiddleware.php(97): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()\n#11 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): App\\Http\\Middleware\\VerifyTokenMiddleware->handle()\n#12 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Middleware/SubstituteBindings.php(50): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()\n#13 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Routing\\Middleware\\SubstituteBindings->handle()\n#14 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(116): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()\n#15 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Router.php(797): Illuminate\\Pipeline\\Pipeline->then()\n#16 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Router.php(776): Illuminate\\Routing\\Router->runRouteWithinStack()\n#17 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Router.php(740): Illuminate\\Routing\\Router->runRoute()\n#18 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Routing/Router.php(729): Illuminate\\Routing\\Router->dispatchToRoute()\n#19 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(190): Illuminate\\Routing\\Router->dispatch()\n#20 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(141): Illuminate\\Foundation\\Http\\Kernel->Illuminate\\Foundation\\Http\\{closure}()\n#21 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TransformsRequest.php(21): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()\n#22 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/ConvertEmptyStringsToNull.php(31): Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest->handle()\n#23 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\ConvertEmptyStringsToNull->handle()\n#24 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TrimStrings.php(40): Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest->handle()\n#25 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\TrimStrings->handle()\n#26 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/ValidatePostSize.php(27): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()\n#27 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\ValidatePostSize->handle()\n#28 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Http/Middleware/HandleCors.php(62): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()\n#29 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Http\\Middleware\\HandleCors->handle()\n#30 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(116): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()\n#31 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(165): Illuminate\\Pipeline\\Pipeline->then()\n#32 /usr/share/nginx/html/portal-seemedik-api/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(134): Illuminate\\Foundation\\Http\\Kernel->sendRequestThroughRouter()\n#33 /usr/share/nginx/html/portal-seemedik-api/public/index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle()\n#34 {main}\n\"} "}],"related":[]},{"id":"g5","level":"WARNING","origin":"Unknown","endpoint":"-","errClass":"-","title":"Log WARNING","msg1":"Slow query detected {\"time\":1523,\"sql\":\"select * from registrations where id = ?\"}","fp":"log|WARNING|Slow query detected {\"time\":\u003cn>,\"sql\":\"select * from registrations where id = ?\"}","exceptions":[{"cls":"Log WARNING","role":"root","file":"","line":0,"msg":"Slow query detected {\"time\":1523,\"sql\":\"select * from registrations where id = ?\"}"}],"chain":[],"errNode":{"layer":"Other","cls":"(log biasa, tanpa stack trace)","method":"","line":0,"file":""},"layers":[],"hint":null,"count":1,"first":1789990200,"last":1789990200,"m":[[1789990200000,1]],"occ":[1789990200],"samples":[{"t":1789990200,"raw":"Slow query detected {\"time\":1523,\"sql\":\"select * from registrations where id = ?\"} []"}],"related":[]}]};
+
+/* ---------- helpers ---------- */
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const short=c=>String(c).split('\\').pop();
+const pad=n=>String(n).padStart(2,'0');
+const parseTs=s=>{const m=String(s).match(/(\d+)-(\d+)-(\d+)[ T](\d+):(\d+)(?::(\d+))?/);return Date.UTC(+m[1],m[2]-1,+m[3],+m[4],+m[5],+(m[6]||0));};
+const fmt=(t,full)=>{const d=new Date(t);const hm=pad(d.getUTCHours())+':'+pad(d.getUTCMinutes())+':'+pad(d.getUTCSeconds());return full?d.getUTCFullYear()+'-'+pad(d.getUTCMonth()+1)+'-'+pad(d.getUTCDate())+' '+hm:hm;};
+const toInput=t=>fmt(t);
+const LAYERS={Middleware:'mw',Controller:'ctl',Service:'svc',Repository:'repo',Model:'repo',Job:'job',Listener:'job',Command:'cmd',Other:'oth',Vendor:'vend'};
+const lbadge=l=>`<span class="badge b-${LAYERS[l]||'oth'}">${esc(l)}</span>`;
+const whereStr=n=>esc(n.cls)+(n.method?'::'+esc(n.method):'')+(n.line?':'+n.line:'');
+const $=id=>document.getElementById(id);
+
+/* ---------- state ---------- */
+let DATA=[],TMIN=0,TMAX=0,DAY='';
+const S={q:'',level:'',origin:'',layer:'',exc:'',from:null,to:null,sort:'count',appOnly:false,view:'exc',extra:null};
+let openId=null,openTab='chain',openSample=0,CUR_B=null;
+
+function build(){
+  DATA=REPORT.groups.map(g=>{
+    const o={...g};
+    o.occ=g.occ.map(s=>s*1000);
+    o.mins=g.m;
+    o.firstT=g.first*1000;o.lastT=g.last*1000;
+    o.blob=[g.title,g.msg1,g.endpoint,g.errClass,...g.exceptions.map(e=>e.cls),...g.chain.filter(n=>n.layer!=='Vendor').map(n=>n.cls+'::'+n.method+' '+n.file)].join(' ').toLowerCase();
+    return o;
+  });
+  if(DATA.length){TMIN=Math.min(...DATA.map(g=>g.firstT));TMAX=Math.max(...DATA.map(g=>g.lastT));}
+  else{TMIN=TMAX=Date.now();}
+  DAY=fmt(TMIN,true).slice(0,10);
+}
+
+/* ---------- filtering ---------- */
+function baseFiltered(){
+  const q=S.q.trim().toLowerCase();
+  return DATA.filter(g=>{
+    if(S.level&&g.level!==S.level)return false;
+    if(S.origin&&g.origin!==S.origin)return false;
+    if(S.layer&&!g.layers.includes(S.layer))return false;
+    if(S.exc&&!g.exceptions.some(e=>e.cls===S.exc))return false;
+    if(S.extra&&g[S.extra.field]!==S.extra.key)return false;
+    if(q&&!g.blob.includes(q))return false;
+    return true;
+  });
+}
+const inRange=t=>(S.from==null||t>=S.from)&&(S.to==null||t<=S.to);
+// histogram disimpan per menit, jadi filter waktu beresolusi menit
+const minIn=t=>(S.from==null||t+59999>=S.from)&&(S.to==null||t<=S.to);
+function withTime(gs){
+  if(S.from==null&&S.to==null)return gs.map(g=>({g,n:g.count,last:g.lastT}));
+  const out=[];
+  for(const g of gs){
+    let n=0,lastMin=0;
+    for(const [t,c] of g.mins){if(minIn(t)){n+=c;lastMin=t;}}
+    if(!n)continue;
+    let last=lastMin;
+    for(const t of g.occ){if(inRange(t)&&t>last)last=t;}
+    out.push({g,n,last});
+  }
+  return out;
+}
+
+/* ---------- timeline ---------- */
+function buckets(items,lo,hi){
+  if(!items.length&&lo==null)return null;
+  const ts=items.map(x=>x.t);
+  const min=lo!=null?lo:Math.min(...ts),max=hi!=null?hi:Math.max(...ts);
+  const size=Math.max(60000,Math.ceil((max-min)/24/60000)*60000);
+  const start=Math.floor(min/size)*size;
+  const n=Math.floor((max-start)/size)+1;
+  const arr=Array.from({length:n},(_,i)=>({s:start+i*size,e:start+(i+1)*size,c:0}));
+  items.forEach(x=>{const i=Math.floor((x.t-start)/size);if(arr[i])arr[i].c+=x.c;});
+  return{arr,size};
+}
+function tlHtml(b,selectable){
+  const mx=Math.max(1,...b.arr.map(x=>x.c));
+  const hasSel=S.from!=null||S.to!=null;
+  return b.arr.map((x,i)=>{
+    const h=x.c?Math.max(6,Math.round(x.c/mx*100)):0;
+    const sel=hasSel&&selectable&&(S.from==null||S.from<x.e)&&(S.to==null||S.to>=x.s);
+    const cls='bar'+(x.c?'':' zero')+(sel?' sel':'')+(hasSel&&selectable&&!sel?' dim':'');
+    const tip=`${fmt(x.s)} – ${fmt(x.e-1000)}: ${x.c} kejadian`;
+    return `<button class="${cls}" ${selectable&&x.c?`data-b="${i}"`:'disabled'} style="height:${x.c?h+'%':'2px'}" title="${tip}" aria-label="${tip}"></button>`;
+  }).join('');
+}
+function renderTimeline(base){
+  const items=base.flatMap(g=>g.mins.map(([t,c])=>({t,c})));
+  const el=$('tl');
+  if(!items.length){el.innerHTML='';$('tl-a').textContent='';$('tl-b').textContent='';CUR_B=null;return;}
+  CUR_B=buckets(items);
+  el.innerHTML=tlHtml(CUR_B,true);
+  $('tl-a').textContent=fmt(CUR_B.arr[0].s);
+  $('tl-b').textContent=fmt(CUR_B.arr[CUR_B.arr.length-1].e-1000);
+  $('tlinfo').textContent='1 batang = '+(CUR_B.size/60000)+' menit. Klik batang untuk memfilter waktu';
+}
+
+/* ---------- render utama ---------- */
+function renderStats(rows){
+  const total=rows.reduce((a,x)=>a+x.n,0);
+  const by=k=>{const m={};rows.forEach(x=>{m[x.g[k]]=(m[x.g[k]]||0)+x.n;});return m;};
+  const lv=by('level'),og=by('origin');
+  const high=(lv.ERROR||0)+(lv.CRITICAL||0)+(lv.ALERT||0)+(lv.EMERGENCY||0);
+  const fmtMap=m=>Object.keys(m).length?Object.entries(m).map(([k,v])=>`${v.toLocaleString('id-ID')} ${k}`).join(' · '):'-';
+  $('stats').innerHTML=
+   `<div class="stat"><b>${total.toLocaleString('id-ID')}</b><span>Total kejadian</span></div>
+    <div class="stat"><b>${rows.length}</b><span>Group unik</span></div>
+    <div class="stat err"><b>${high.toLocaleString('id-ID')}</b><span>ERROR atau lebih tinggi</span></div>
+    <div class="stat"><b style="font-size:16px;line-height:1.9">${esc(fmtMap(og))}</b><span>Origin</span></div>
+    <div class="stat"><b style="font-size:16px;line-height:1.9">${esc(fmtMap(lv))}</b><span>Level</span></div>`;
+}
+function renderChips(){
+  const c=[];
+  if(S.extra)c.push(`<span class="chip">${esc(S.extra.label)}: <b>${esc(S.extra.key)}</b><button data-clear="extra" aria-label="Hapus filter">×</button></span>`);
+  if(S.from!=null||S.to!=null)c.push(`<span class="chip">Waktu: <b>${S.from!=null?fmt(S.from):'…'} – ${S.to!=null?fmt(S.to):'…'}</b><button data-clear="time" aria-label="Hapus filter waktu">×</button></span>`);
+  $('chips').innerHTML=c.join('');
+  $('chips').style.display=c.length?'flex':'none';
+}
+function sortRows(rows){
+  const s=S.sort;
+  return rows.slice().sort((a,b)=>s==='count'?b.n-a.n||b.last-a.last:s==='last'?b.last-a.last:a.g.firstT-b.g.firstT);
+}
+function renderExc(rows){
+  if(!rows.length)return `<div class="empty">Tidak ada error yang cocok dengan filter ini.<br>Coba hapus filter atau perlebar rentang waktu.</div>`;
+  const mx=Math.max(...rows.map(x=>x.n));
+  return `<table><thead><tr><th>Jumlah</th><th>Exception dan pesan</th><th>Origin</th><th>Titik error</th><th>Terakhir</th></tr></thead><tbody>`+
+   sortRows(rows).map(({g,n,last})=>`<tr data-open="${g.id}" tabindex="0">
+      <td><div class="cnt">×${n.toLocaleString('id-ID')}</div><div class="cbar" style="width:${Math.max(8,n/mx*56)}px"></div></td>
+      <td><span class="badge b-${g.level}">${g.level}</span>${g.related.length?`<span class="badge b-rel" title="Terjadi hampir bersamaan dan di service yang sama">terkait ${g.related.length}</span>`:''}
+        <div class="ex-cls">${esc(short(g.title))}</div><div class="ex-msg">${esc(g.msg1.length>170?g.msg1.slice(0,170)+'…':g.msg1)}</div></td>
+      <td><span class="badge b-${g.origin}">${g.origin}</span><div class="where" style="color:var(--muted)">${esc(g.endpoint)}</div></td>
+      <td class="where">${lbadge(g.errNode.layer)}<span class="mono">${whereStr(g.errNode)}</span></td>
+      <td class="where">${fmt(last)}</td></tr>`).join('')+`</tbody></table>`;
+}
+function renderAgg(rows){
+  if(!rows.length)return `<div class="empty">Tidak ada data untuk filter ini.</div>`;
+  const field=S.view,m={};
+  rows.forEach(({g,n})=>{
+    const k=g[field];
+    const e=m[k]||(m[k]={key:k,count:0,groups:0,layer:field==='errClass'?g.errNode.layer:(g.origin==='HTTP'?'Controller':g.origin==='Queue'?'Job':'Command'),origin:g.origin,exc:new Set()});
+    e.count+=n;e.groups++;e.exc.add(short(g.title));
+  });
+  const list=Object.values(m).sort((a,b)=>b.count-a.count);
+  const mx=list[0].count;
+  const head=field==='errClass'?'Class tempat error terjadi':'Controller atau job';
+  return `<table><thead><tr><th>Jumlah</th><th>${head}</th><th>Group</th><th>Jenis exception</th></tr></thead><tbody>`+
+   list.map(e=>`<tr data-agg="${esc(e.key)}" tabindex="0">
+     <td><div class="cnt">×${e.count.toLocaleString('id-ID')}</div><div class="cbar" style="width:${Math.max(8,e.count/mx*56)}px"></div></td>
+     <td>${lbadge(e.layer)}<span class="mono">${esc(e.key)}</span> <span class="badge b-${e.origin}">${e.origin}</span></td>
+     <td>${e.groups}</td><td class="where" style="white-space:normal">${[...e.exc].map(esc).join(', ')}</td></tr>`).join('')+`</tbody></table>
+     <div class="pad" style="color:var(--muted);font-size:12.5px">Klik baris untuk melihat exception di dalamnya.</div>`;
+}
+function render(){
+  const base=baseFiltered(),rows=withTime(base);
+  renderStats(rows);renderTimeline(base);renderChips();
+  $('tablewrap').innerHTML=S.view==='exc'?renderExc(rows):renderAgg(rows);
+  document.querySelectorAll('.views button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.view===S.view)));
+}
+
+/* ---------- drawer ---------- */
+function rawView(text){
+  if(!S.appOnly)return text;
+  const out=[];let hidden=0;
+  const flush=()=>{if(hidden){out.push(`   … ${hidden} frame vendor disembunyikan`);hidden=0;}};
+  for(const ln of text.split('\n')){
+    if(/^#\d+ .*[\\/]vendor[\\/]/.test(ln)||/^#\d+ \[internal function\]/.test(ln)){hidden++;continue;}
+    flush();out.push(ln);
+  }
+  flush();
+  return out.join('\n');
+}
+function chainHtml(g){
+  if(!g.chain.length)return `<div class="empty">Entry ini tidak memiliki stack trace (log biasa).</div>`;
+  let depth=0;
+  return g.chain.map((n,i)=>{
+    if(n.layer==='Vendor'){
+      if(S.appOnly&&!n.err)return '';
+      const id='v'+g.id+'_'+i;
+      return `<div class="node n-vend ${n.err?'errnode':''}" style="--d:${depth}">
+        <button class="vtoggle" data-v="${id}" aria-expanded="false">▸ ${n.err?'Di dalam vendor, error dilempar: ':''}${n.vendor} frame vendor</button>
+        ${n.err&&n.note?`<div class="tag">${esc(n.note)}</div>`:''}
+        <ul class="vs mono" id="${id}" hidden>${n.samples.map(s=>`<li>${esc(s)}</li>`).join('')}${n.vendor>n.samples.length?'<li>… dan frame lainnya (hanya sebagian yang ditampilkan)</li>':''}</ul></div>`;
+    }
+    const html=`<div class="node n-${LAYERS[n.layer]||'oth'} ${n.err?'errnode':''}" style="--d:${depth}">
+      <div>${lbadge(n.layer)}<span class="sig mono">${esc(n.cls)}${n.method?'::'+esc(n.method):''}</span> <span class="mono" style="color:var(--muted)">:${n.line}</span></div>
+      <div class="file mono">${esc(n.file)}</div>
+      ${n.note?`<div class="nnote">${esc(n.note)}</div>`:''}
+      ${n.origin&&!n.err?`<div class="tag o">Baris di kode app yang memicu error</div>`:''}
+      ${n.err?`<div class="tag">Error dilempar di sini</div>`:''}</div>`;
+    depth++;
+    return html;
+  }).join('');
+}
+function excHtml(g){
+  const list=g.exceptions;
+  return `<p style="color:var(--muted);margin-top:0;font-size:13px">${list.length>1?'Satu entry log memuat '+list.length+' exception berantai. Urutan dari pembungkus ke penyebab utama.':'Satu exception dalam entry ini.'}</p>`+
+   list.map((e,i)=>{
+     let kv='';
+     const m=e.msg.match(/Key \((.*?)\)=\((.*?)\)/);
+     if(m){const k=m[1].split(', '),v=m[2].split(', ');kv=`<table class="kv mono"><tr><th>Kolom</th><th>Nilai</th></tr>${k.map((x,j)=>`<tr><td>${esc(x)}</td><td>${esc(v[j]||'')}</td></tr>`).join('')}</table>`;}
+     return (i?'<div class="arrow">disebabkan oleh ↓</div>':'')+
+     `<div class="exc ${e.role==='root'?'root':''}"><div><span class="badge ${e.role==='root'?'b-ERROR':'b-vend'}">${e.role==='root'?'penyebab utama':'pembungkus'}</span><span class="cls mono">${esc(e.cls)}</span></div>
+      <pre>${esc(e.msg)}</pre>${kv}${e.file?`<div class="f mono">${esc(e.file)}:${e.line}</div>`:''}</div>`;
+   }).join('');
+}
+function occHtml(g){
+  const b=buckets(g.mins.map(([t,c])=>({t,c})),TMIN,TMAX);
+  const sorted=g.occ.slice().sort((a,b)=>b-a);
+  const rel=g.related.map(id=>DATA.find(x=>x.id===id)).filter(Boolean);
+  return `<div class="tl mini">${tlHtml(b,false)}</div>
+   <div class="tl-axis" style="padding:2px 0 8px"><span>${fmt(b.arr[0].s)}</span><span>${fmt(b.arr[b.arr.length-1].e-1000)}</span></div>
+   <table><thead><tr><th>Waktu</th><th>Level</th></tr></thead><tbody>
+   ${sorted.slice(0,50).map(o=>`<tr style="cursor:default"><td class="mono">${fmt(o,true)}</td><td><span class="badge b-${g.level}">${g.level}</span></td></tr>`).join('')}
+   </tbody></table>
+   <div class="pad" style="color:var(--muted);font-size:12.5px">Menampilkan ${Math.min(50,sorted.length)} kejadian terbaru dari ${g.count.toLocaleString('id-ID')} total${g.count>g.occ.length?` (laporan menyimpan ${g.occ.length} waktu terakhir, batang timeline tetap menghitung semua)`:''}.</div>
+   ${rel.length?`<h4>Entry terkait</h4><div style="color:var(--muted);font-size:12.5px;margin-bottom:6px">Terjadi dalam selisih 2 detik dan lewat class service yang sama.</div>`+
+     rel.map(r=>`<div class="rel-item" data-open="${r.id}" tabindex="0"><span class="badge b-${r.level}">${r.level}</span><span class="mono">${esc(short(r.title))}</span><span style="color:var(--muted);font-size:12.5px;margin-left:auto">×${r.count.toLocaleString('id-ID')}</span></div>`).join(''):''}`;
+}
+function rawHtml(g){
+  if(openSample>=g.samples.length)openSample=0;
+  const s=g.samples[openSample];
+  return `<div class="samples">${g.samples.map((x,i)=>`<button data-sample="${i}" aria-pressed="${i===openSample}">${i===0?'Pertama':'Terbaru'} · ${fmt(x.t*1000)}</button>`).join('')}</div>
+   <div class="rawbar"><span>${S.appOnly?'Frame vendor disembunyikan.':'Trace lengkap seperti di file log.'}</span><button class="btn" id="copyraw">Salin</button></div>
+   <pre class="raw mono" id="rawpre">${esc(rawView(s.raw))}</pre>`;
+}
+function drawerHtml(g){
+  const n=g.errNode;
+  const tabs=[['chain','Call chain'],['exc','Exception chain'],['occ','Kejadian ('+g.count.toLocaleString('id-ID')+')'],['raw','Raw']];
+  let body='';
+  if(openTab==='chain')body=`<p style="color:var(--muted);margin-top:0;font-size:13px">Urutan pemanggilan dari request, job, atau command masuk sampai error. ${S.appOnly?'Frame vendor disembunyikan.':'Frame vendor dilipat, klik untuk melihat contohnya.'}</p>`+chainHtml(g);
+  else if(openTab==='exc')body=excHtml(g);
+  else if(openTab==='occ')body=occHtml(g);
+  else body=rawHtml(g);
+  return `<div class="dhead"><div><div style="margin-bottom:4px"><span class="badge b-${g.level}">${g.level}</span><span class="badge b-${g.origin}">${g.origin}</span></div>
+      <h3 class="mono">${esc(g.title)}</h3><div style="color:var(--muted);font-size:13px;margin-top:2px">${esc(g.msg1.length>200?g.msg1.slice(0,200)+'…':g.msg1)}</div></div>
+      <button class="x" id="dclose" aria-label="Tutup">✕</button></div>
+   <div class="dbody">
+    <div class="ov">
+      <div><small>Jumlah kejadian</small><span><b>×${g.count.toLocaleString('id-ID')}</b></span></div>
+      <div><small>Endpoint atau job</small><span class="mono">${esc(g.endpoint)}</span></div>
+      <div><small>Titik error</small><span class="mono">${whereStr(n)}</span></div>
+      <div><small>Pertama terlihat</small><span>${fmt(g.firstT,true)}</span></div>
+      <div><small>Terakhir terlihat</small><span>${fmt(g.lastT,true)}</span></div>
+      <div><small>Layer yang terlibat</small><span>${g.layers.length?g.layers.map(lbadge).join(''):'-'}</span></div>
+    </div>
+    ${g.hint?`<div class="hint"><b>Saran awal:</b> ${esc(g.hint)}</div>`:''}
+    <div class="fp"><span style="color:var(--text)">Kunci group (fingerprint):</span> <span class="mono">${esc(g.fp)}</span></div>
+    <div class="tabs" role="tablist">${tabs.map(([k,l])=>`<button role="tab" data-tab="${k}" aria-selected="${openTab===k}">${l}</button>`).join('')}</div>
+    <div>${body}</div>
+   </div>`;
+}
+function openDrawer(id,keep){
+  const g=DATA.find(x=>x.id===id);if(!g)return;
+  if(!keep||openId!==id){openTab=keep?openTab:'chain';openSample=0;}
+  openId=id;
+  const d=$('drawer');
+  d.innerHTML=drawerHtml(g);
+  d.classList.add('open');d.setAttribute('aria-hidden','false');
+  $('scrim').classList.add('open');
+  $('dclose').focus({preventScroll:true});
+}
+function closeDrawer(){
+  openId=null;
+  $('drawer').classList.remove('open');
+  $('drawer').setAttribute('aria-hidden','true');
+  $('scrim').classList.remove('open');
+}
+
+/* ---------- filter UI ---------- */
+function fillSelect(id,label,values){
+  $(id).innerHTML=`<option value="">${label}</option>`+values.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
+}
+function initFilters(){
+  fillSelect('f-level','Semua level',[...new Set(DATA.map(g=>g.level))]);
+  fillSelect('f-origin','Semua origin',[...new Set(DATA.map(g=>g.origin))]);
+  fillSelect('f-layer','Semua layer',['Middleware','Controller','Service','Repository','Model','Job','Listener','Command','Other'].filter(l=>DATA.some(g=>g.layers.includes(l))));
+  fillSelect('f-exc','Semua exception',[...new Set(DATA.flatMap(g=>g.exceptions.map(e=>e.cls)))]);
+}
+function resetState(){
+  Object.assign(S,{q:'',level:'',origin:'',layer:'',exc:'',from:null,to:null,extra:null});
+  ['q','f-level','f-origin','f-layer','f-exc','t-from','t-to'].forEach(i=>$(i).value='');
+}
+function header(){
+  const m=REPORT.meta;
+  $('title').textContent=m.title;
+  const span=DATA.length?`${fmt(TMIN,true).slice(0,16)} sampai ${fmt(TMAX).slice(0,5)}`:'';
+  $('fileinfo').textContent=m.files.join(', ')+(span?'  |  '+span:'');
+  const mb=(m.bytes/1048576).toFixed(1);
+  const filt=[];
+  filt.push('level ≥ '+m.minLevel);
+  if(m.date)filt.push('tanggal '+m.date);
+  if(m.from)filt.push('dari '+m.from);
+  if(m.to)filt.push('sampai '+m.to);
+  if(m.tail)filt.push('hanya '+(m.tail/1048576).toFixed(0)+' MB terakhir');
+  let t=`Dibaca ${m.entries.toLocaleString('id-ID')} entry (${mb} MB), dipakai ${m.kept.toLocaleString('id-ID')} entry (${filt.join(', ')}). Dibuat ${m.generatedAt.slice(0,19).replace('T',' ')} UTC dalam ${m.seconds} dtk.`;
+  if(m.masked)t+=' Data sensitif disamarkan.';
+  let warn=false;
+  if(m.reduced){t+=' Ukuran data dikurangi otomatis: sampel raw dan daftar waktu kejadian dipangkas, hitungan tetap akurat.';warn=true;}
+  if(m.dropped){t+=' Peringatan: '+m.dropped.toLocaleString('id-ID')+' entry dari group baru tidak dimasukkan karena batas '+m.maxGroups.toLocaleString('id-ID')+' group tercapai; daftar di bawah tidak lengkap.';warn=true;}
+  $('modenote').textContent=t;
+  $('modenote').className='note'+(warn?' warn':'');
+}
+
+/* ---------- events ---------- */
+function bind(){
+  $('q').addEventListener('input',e=>{S.q=e.target.value;render();});
+  [['f-level','level'],['f-origin','origin'],['f-layer','layer'],['f-exc','exc']].forEach(([id,k])=>$(id).addEventListener('change',e=>{S[k]=e.target.value;render();}));
+  $('sort').addEventListener('change',e=>{S.sort=e.target.value;render();});
+  $('apponly').addEventListener('change',e=>{S.appOnly=e.target.checked;if(openId)openDrawer(openId,true);});
+  $('t-from').addEventListener('change',e=>{S.from=e.target.value?parseTs(DAY+' '+e.target.value):null;render();});
+  $('t-to').addEventListener('change',e=>{S.to=e.target.value?parseTs(DAY+' '+e.target.value):null;render();});
+  $('reset').addEventListener('click',()=>{resetState();render();});
+  $('theme').addEventListener('click',()=>{
+    const r=document.documentElement;
+    const dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches;
+    r.dataset.theme=dark?'light':'dark';
+  });
+  $('scrim').addEventListener('click',closeDrawer);
+  document.addEventListener('keydown',e=>{
+    if(e.key==='Escape')closeDrawer();
+    if((e.key==='Enter'||e.key===' ')&&e.target.matches('tr[data-open],tr[data-agg],.rel-item')){e.preventDefault();e.target.click();}
+  });
+  $('tl').addEventListener('click',e=>{
+    const b=e.target.closest('[data-b]');if(!b||!CUR_B)return;
+    const x=CUR_B.arr[+b.dataset.b],to=x.e-1000;
+    if(S.from===x.s&&S.to===to){S.from=S.to=null;$('t-from').value=$('t-to').value='';}
+    else{S.from=x.s;S.to=to;$('t-from').value=toInput(x.s);$('t-to').value=toInput(to);}
+    render();
+  });
+  $('chips').addEventListener('click',e=>{
+    const b=e.target.closest('[data-clear]');if(!b)return;
+    if(b.dataset.clear==='extra')S.extra=null;else{S.from=S.to=null;$('t-from').value=$('t-to').value='';}
+    render();
+  });
+  document.querySelector('.views').addEventListener('click',e=>{
+    const b=e.target.closest('[data-view]');if(!b)return;S.view=b.dataset.view;render();
+  });
+  $('tablewrap').addEventListener('click',e=>{
+    const r=e.target.closest('tr[data-open]');if(r){openDrawer(r.dataset.open);return;}
+    const a=e.target.closest('tr[data-agg]');
+    if(a){S.extra={field:S.view,key:a.dataset.agg,label:S.view==='errClass'?'Class':'Endpoint/Job'};S.view='exc';render();}
+  });
+  $('drawer').addEventListener('click',e=>{
+    if(e.target.closest('#dclose')){closeDrawer();return;}
+    const t=e.target.closest('[data-tab]');if(t){openTab=t.dataset.tab;openDrawer(openId,true);return;}
+    const sm=e.target.closest('[data-sample]');if(sm){openSample=+sm.dataset.sample;openDrawer(openId,true);return;}
+    const v=e.target.closest('[data-v]');
+    if(v){const ul=document.getElementById(v.dataset.v);ul.hidden=!ul.hidden;v.setAttribute('aria-expanded',String(!ul.hidden));v.textContent=v.textContent.replace(/^[▸▾]/,ul.hidden?'▸':'▾');return;}
+    const r=e.target.closest('[data-open]');if(r){openDrawer(r.dataset.open);return;}
+    if(e.target.closest('#copyraw')){
+      const txt=$('rawpre').textContent,btn=e.target.closest('#copyraw');
+      const done=()=>{btn.textContent='Tersalin';setTimeout(()=>btn.textContent='Salin',1400);};
+      const fb=()=>{const ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');done();}catch(_){btn.textContent='Gagal menyalin';}ta.remove();};
+      try{navigator.clipboard.writeText(txt).then(done,fb);}catch(_){fb();}
+    }
+  });
+}
+
+if(!REPORT){
+  document.body.innerHTML='<div class="wrap"><div class="note warn">Template ini belum berisi data. Jalankan <code>node logreport.js laravel.log</code> untuk membuat laporan.</div></div>';
+}else{
+  build();header();initFilters();bind();render();
+}
+</script>
+</body>
+</html>

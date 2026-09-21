@@ -1,0 +1,30 @@
+{
+  "name": "alogreport",
+  "version": "1.1.0",
+  "description": "Laporan HTML dari log Laravel: pengelompokan error, call chain per layer, filter, timeline",
+  "bin": {
+    "alogreport": "./src/alogreport.ts"
+  },
+  "files": [
+    "src/",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "start": "bun src/alogreport.ts",
+    "typecheck": "bun --bun tsc -p tsconfig.json",
+    "test": "bun test ./test/",
+    "sample": "bun test/make-sample-log.ts --out=examples/sample.log && bun src/alogreport.ts examples/sample.log --level=warning --out=examples/sample-report.html",
+    "docker:build": "docker build -t alogreport:local ."
+  },
+  "engines": {
+    "bun": ">=1.4.0"
+  },
+  "license": "MIT",
+  "private": true,
+  "packageManager": "bun@1.4.0",
+  "devDependencies": {
+    "@types/bun": "^1.4.2",
+    "typescript": "^7.0.2"
+  }
+}
