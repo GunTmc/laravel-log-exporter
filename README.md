@@ -189,7 +189,7 @@ Contoh Docker Compose (tidak ikut `docker compose up`; jalankan sesuai kebutuhan
 ```yaml
 services:
   alogreport:
-    image: alogreport            # atau ghcr.io/<pemilik>/alogreport:latest
+    image: alogreport            # image lokal; dari GHCR: ghcr.io/<pemilik>/<nama-repo>:latest
     profiles: [tools]
     volumes:
       - ./storage/logs:/logs:ro
@@ -201,7 +201,7 @@ docker compose run --rm --user "$(id -u):$(id -g)" alogreport /logs/laravel-2026
 ```
 
 Workflow `.github/workflows/docker.yaml` membangun dan menguji image di setiap perubahan terkait. Saat tag `v*` didorong
-(mis. `git tag v1.2.0 && git push --tags`), image amd64 dan arm64 dipublikasikan ke `ghcr.io/<pemilik>/alogreport` dengan tag
+(mis. `git tag v1.2.0 && git push --tags`), image amd64 dan arm64 dipublikasikan ke `ghcr.io/<pemilik>/<nama-repo>` (huruf kecil; untuk repo ini `ghcr.io/guntmc/laravel-log-exporter`) dengan tag
 `1.2.0`, `1.2`, dan `latest`. Package di GHCR bersifat privat secara default; atur visibilitasnya sesuai kebutuhan.
 
 ## Menjalankan terjadwal

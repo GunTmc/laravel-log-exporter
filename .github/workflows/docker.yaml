@@ -33,9 +33,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Nama image (GHCR mewajibkan huruf kecil)
+      # nama image = pemilik/nama-repo, jadi package di GHCR otomatis sama dengan repo (GHCR mewajibkan huruf kecil)
+      - name: Nama image
         id: img
-        run: echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/alogreport" >> "$GITHUB_OUTPUT"
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v4
 
